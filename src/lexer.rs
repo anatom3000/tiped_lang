@@ -55,6 +55,7 @@ pub enum TokenData {
     Pub,
     Let,
     In,
+    Fun,
     Return,
     Break,
     False,
@@ -112,6 +113,7 @@ impl Display for TokenData {
                 Pub => "pub",
                 Let => "let",
                 In => "in",
+                Fun => "fun",
                 Return => "return",
                 Break => "break",
                 False => "false",
@@ -236,6 +238,7 @@ impl<'a> Lexer<'a> {
                             "pub" => TokenData::Pub,
                             "let" => TokenData::Let,
                             "in" => TokenData::In,
+                            "fun" => TokenData::Fun,
                             "return" => TokenData::Return,
                             "break" => TokenData::Break,
                             "false" => TokenData::False,
@@ -363,7 +366,8 @@ impl<'a> Iterator for Lexer<'a> {
                 },
                 '\n' => {
                     self.new_line();
-                    self.token(NewLine)
+                    // self.token(NewLine)
+                    self.next()?
                 }
                 letter if letter.is_alphabetic() || letter == '_' => self.identifier(letter),
                 letter if letter.is_numeric() => self.number(letter),

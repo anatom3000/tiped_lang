@@ -15,9 +15,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(tokens.errors.is_empty());
 
-    let _expr = parser::Parser::new(tokens.tokens).parse();
+    let expr = parser::Parser::new(tokens.tokens).parse();
 
-    // println!("{expr}");
+    println!("{expr}");
     
     use crate::tree::Type::*;
 

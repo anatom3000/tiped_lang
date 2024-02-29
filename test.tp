@@ -1,7 +1,9 @@
 let x = 42 in
 let y = 69 in
-let f = fun x y -> (
+let f = fun x -> fun y -> (
   let a = 4 in
   x
 ) in
-let z = y in z
+let z = f(x)(y) in z
+
+

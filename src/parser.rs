@@ -26,7 +26,7 @@ impl Parser {
     fn expression(&mut self) -> Expression {
         use ExpressionData::*;
 
-        match self.current_token() {
+        let mut expr = match self.current_token() {
             Some(TokenData::NewLine) => {
                 self.current += 1;
                 self.expression()
@@ -62,7 +62,21 @@ impl Parser {
             }
             Some(other) => panic!("expected inneression, found {other:?}"),
             None => panic!("expected expression, found EOF"),
+        };
+
+        while let Some(TokenData::LeftParen) = self.current_token() {
+            self.current += 1;
+            let arg = self.expression();
+
+            self.expect(TokenData::RightParen);
+
+            expr = Expression::untyped(ExpressionData::App {
+                fun: Box::new(expr),
+                arg: Box::new(arg)
+            })
         }
+
+        expr
     }
 
     fn let_in(&mut self) -> Expression {
@@ -81,25 +95,18 @@ impl Parser {
     }
 
     fn fun(&mut self) -> Expression {
-        let mut args = vec![];
-        let Some(TokenData::Identifier(first)) = self.current_token() else
+        let Some(TokenData::Identifier(arg)) = self.current_token() else
             { panic!("expected argument after `fun`") };
         
-        args.push(first.to_string());
+        let arg = arg.to_string();
         self.current += 1;
-
-
-        while let Some(TokenData::Identifier(arg)) = self.current_token() {
-            args.push(arg.to_string());
-            self.current += 1;
-        }
 
         self.expect(TokenData::Arrow);
 
         let body = self.expression();
 
         Expression::untyped(ExpressionData::Fun {
-            args: args.into_iter().map(|name| (name, None)).collect(),
+            arg: (arg, None),
             body: Box::new(body)
         })
     }

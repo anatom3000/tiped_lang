@@ -6,8 +6,12 @@ pub enum ExpressionData {
         body: Box<Expression>,
     },
     Fun {
-        args: Vec<(String, Option<Type>)>,
+        arg: (String, Option<Type>),
         body: Box<Expression>
+    },
+    App {
+        fun: Box<Expression>,
+        arg: Box<Expression>
     },
     StringLiteral(String),
     IntLiteral(i64),
@@ -59,17 +63,17 @@ impl Display for ExpressionData {
         match self {
             ExpressionData::LetIn { name, value, body } =>
                 write!(f, "let {name} = {value} in \n{body}"),
-            ExpressionData::Fun { args, body } => {
+            ExpressionData::Fun { arg: (name, ty), body } => {
                 write!(f, "fun ")?;
-                for (name, ty) in args {
-                    match ty {
-                        None => write!(f, "{name} ")?,
-                        Some(ty) => write!(f, "({name}: {ty}) ")?
-                    }
+                match ty {
+                    None => write!(f, "{name} ")?,
+                    Some(ty) => write!(f, "({name}: {ty}) ")?
                 }
                 write!(f, "-> \n")?;
                 write!(f, "({body})")
             }
+            ExpressionData::App { fun, arg } =>
+                write!(f, "{fun}({arg})"),
             ExpressionData::StringLiteral(content) => 
                 write!(f, "\"{content}\""),
             ExpressionData::IntLiteral(value) => 

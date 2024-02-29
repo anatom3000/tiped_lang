@@ -1,4 +1,4 @@
-use crate::tree::Type;
+use crate::tree::{Type, Expression};
 
 fn occurs_in(variable: &str, term: &Type) -> bool {
     match term {
@@ -61,4 +61,8 @@ pub fn unify(mut expr1: Type, mut expr2: Type) -> bool {
     }
 
     true
+}
+
+pub fn type_expression(expr: Expression) -> Expression {
+    todo!()
 }

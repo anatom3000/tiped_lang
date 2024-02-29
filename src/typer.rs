@@ -80,6 +80,7 @@ fn unify(expr1: &mut Type, expr2: &mut Type) -> bool {
     true
 }
 
+// TODO: add this ugly global variable
 static mut NEXT_FRESH_VARIABLE: usize = 0;
 
 #[derive(Debug, Clone)]

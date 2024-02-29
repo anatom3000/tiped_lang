@@ -63,6 +63,7 @@ pub enum TokenData {
     Null,
 
     // specials
+    #[allow(unused)]
     NewLine,
     Unknown(String),
 }

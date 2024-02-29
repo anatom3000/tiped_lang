@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ExpressionData {
     LetIn {
         name: String,
@@ -14,13 +14,14 @@ pub enum ExpressionData {
     Variable(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Atom(String),
+    Var(String),
     Fun(Box<Type>, Box<Type>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Expression {
     pub data: ExpressionData,
     pub type_: Option<Type>
@@ -38,6 +39,7 @@ impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::Atom(name) => write!(f, "{name}"),
+            Type::Var(name) => write!(f, "'{name}"),
             Type::Fun(from, to) => write!(f, "({from} -> {to})")
         }
     }

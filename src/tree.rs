@@ -21,7 +21,7 @@ pub enum ExpressionData {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Atom(String),
-    Var(String),
+    Var(usize),
     Fun(Box<Type>, Box<Type>),
 }
 

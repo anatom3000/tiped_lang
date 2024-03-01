@@ -1,4 +1,1 @@
-let f = fun x -> fun y -> x in
-let x = 42 in
-f(x)
-// fun x -> x(x)
+fun f -> f(42)

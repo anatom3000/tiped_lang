@@ -2,40 +2,18 @@ use std::collections::HashMap;
 
 use crate::tree::{Type, Expression, ExpressionData};
 
-fn occurs_in(variable: &str, term: &Type) -> bool {
+fn occurs_in(variable: usize, term: &Type) -> bool {
     match term {
-        Type::Var(name)     => variable == name,
+        Type::Var(name)     => &variable == name,
         Type::Atom(_)       => false,
         Type::Fun(from, to) => occurs_in(variable, &from)
                             || occurs_in(variable, &to),
     }
 }
 
-fn disagreement(expr1: &Type, expr2: &Type) -> Option<(Type, Type)> {
-    match (expr1, expr2) {
-        | (Type::Atom(name1), Type::Atom(name2))
-        | (Type::Var(name1), Type::Var(name2))
-            => (name1 != name2).then_some((expr1.clone(), expr2.clone())),
-
-        | (Type::Atom(_), Type::Var(_))
-        | (Type::Var(_), Type::Atom(_))
-            => Some((expr1.clone(), expr2.clone())),
-
-        (Type::Atom(_) | Type::Var(_), Type::Fun(_, _))
-            => Some((expr1.clone(), expr2.clone())),
-
-        (Type::Fun(_, _), Type::Atom(_) | Type::Var(_))
-            => Some((expr2.clone(), expr1.clone())),
-
-        (Type::Fun(from1, to1), Type::Fun(from2, to2))
-            => disagreement(from1, from2)
-            .or_else(|| disagreement(to1, to2)),
-    }
-}
-
-fn substitute(old: &str, new: &Type, expr: &mut Type) {
+fn substitute(old: usize, new: &Type, expr: &mut Type) {
     match expr {
-        Type::Var(v) if v == old => *expr = new.clone(),
+        Type::Var(v) if v == &old => *expr = new.clone(),
         Type::Fun(from, to) => {
             substitute(old, new, from);
             substitute(old, new, to);
@@ -45,120 +23,111 @@ fn substitute(old: &str, new: &Type, expr: &mut Type) {
     }
 }
 
-fn unify(expr1: &mut Type, expr2: &mut Type) -> bool {
-    // println!("starting unification of {expr1} and {expr2}");
-    // storing the substitutions is not needed, as they happen in place
-    while expr1 != expr2 {
-        let (d1, d2) = disagreement(&expr1, &expr2)
-            .expect("expr1 and expr2 should disagree, otherwise they are identical");
-        match (d1, d2) {
-            (Type::Var(d1), d2) => {
-                if occurs_in(&d1, &d2) {
-                    //println!("d1='{d1} occurs in d2={d2}, unification failed...");
-                    return false;
-                }
+fn unify(mut constraints: Vec<(Type, Type)>, type_: &mut Type) {
+    use Type::*;
 
-                substitute(&d1, &d2, expr1);
-                substitute(&d1, &d2, expr2);
+    while let Some(c) = constraints.pop() {
+        match c {
+            (Atom(left), Atom(right)) if left == right => (),
+            (Var(left), Var(right)) if left == right => (),
+            (Fun(from1, to1), Fun(from2, to2)) => {
+                constraints.push((*from1, *from2));
+                constraints.push((*to1, *to2));
             },
-            (d1, Type::Var(d2)) => {
-                if occurs_in(&d2, &d1) {
-                    //println!("d2='{d2} occurs in d1={d1}, unification failed...");
-                    return false;
+            | (Var(variable), value)
+            | (value, Var(variable)) if !occurs_in(variable, &value) => {
+                for (left, right) in &mut constraints {
+                    substitute(variable, &value, left);
+                    substitute(variable, &value, right);
                 }
-
-                substitute(&d2, &d1, expr1);
-                substitute(&d2, &d1, expr2);
-            }
-            (_d1, _d2) => {
-                //println!("d1={d1} was not a variable, (d2={d2}) unification failed...");
-                return false;
-            }
+                // apply substitution to type_ directly
+                // so we don't have to compute compositions of substitutions
+                substitute(variable, &value, type_);
+            },
+            (left, right) => panic!("could not unify {left} with {right}")
         }
     }
-
-    true
 }
 
 // TODO: add this ugly global variable
 static mut NEXT_FRESH_VARIABLE: usize = 0;
 
+fn new_var() -> Type {
+    unsafe { NEXT_FRESH_VARIABLE += 1; }
+    Type::Var(unsafe { NEXT_FRESH_VARIABLE })
+}
+
+struct InferenceResult {
+    type_: Type,
+    constraints: Vec<(Type, Type)>
+}
+
 #[derive(Debug, Clone)]
-pub struct Context {
+pub struct Environment {
     variables: HashMap<String, Type>,
 }
 
-impl Context {
-    fn new_var(&mut self) -> Type {
-        unsafe { NEXT_FRESH_VARIABLE += 1; }
-        Type::Var(format!("{}", unsafe { NEXT_FRESH_VARIABLE }))
-    }
-
-    fn add_variable(mut self, name: String, ty: Type) -> Self {
+impl Environment {
+    fn add_variable(&mut self, name: String, ty: Type) {
         self.variables.insert(name, ty);
-        self
     }
 
-    fn infer_type(mut self, expr: &mut Expression) {
-        expr.type_ = Some(match &mut expr.data {
+    fn infer_type(&self, expr: &Expression) -> InferenceResult {
+        match &expr.data {
             ExpressionData::LetIn { name, value, body } => {
-                // [Let] rule
-                self.clone().infer_type(value);
-                let with_var = self.add_variable(name.clone(), value.type_.clone().expect("value was typed above"));
-                
-                with_var.infer_type(body);
-                body.type_.clone().expect("body was typed above")       
+                todo!("typing of let expressions {name:?}, {value:?}, {body:?}")
             },
-            ExpressionData::Fun { arg: (arg_name, _), body } => {
-                let arg_type = self.new_var();
-                let with_arg = self.add_variable(arg_name.to_string(), arg_type.clone());
+            ExpressionData::Fun { arg: (arg_name, _ /* == None */), body } => {
+                let arg_type = new_var();
                 
-                with_arg.infer_type(body);
-                let return_type = body.type_.clone().expect("body was typed above");
+                let mut with_arg = self.clone();
+                with_arg.add_variable(arg_name.to_string(), arg_type.clone());
+
+                let InferenceResult { type_: body_type, constraints } = with_arg.infer_type(body);
 
                 let arg_type = Box::new(arg_type);
-                let return_type = Box::new(return_type);
-
-                Type::Fun(arg_type, return_type)
+                let body_type = Box::new(body_type);
+                
+                InferenceResult {
+                    type_: Type::Fun(arg_type, body_type),
+                    constraints
+                }
             },
             ExpressionData::App { fun, arg } => {
-                self.clone().infer_type(fun);
-                self.clone().infer_type(arg);
+                let result_type = new_var();
+                let InferenceResult { type_: fun_type, constraints:     fun_constraints } = self.infer_type(fun);
+                let InferenceResult { type_: arg_type, constraints: mut arg_constraints } = self.infer_type(arg);
+
+                let mut constraints = fun_constraints;
+                constraints.append(&mut arg_constraints);
                 
-                let return_type = self.new_var();
-                let mut fun_type = fun.type_.clone().expect("fun was typed above");
-                let arg_type = arg.type_.clone().expect("arg was typed above");
-                let mut infered_fun_type = 
-                    Type::Fun(
-                        Box::new(arg_type),
-                        Box::new(return_type)
-                    );
+                let result_type_boxed = Box::new(result_type.clone());
+                let arg_type = Box::new(arg_type);
 
-                let fun_type_old = fun_type.clone();
-                let infered_fun_type_old = infered_fun_type.clone();
+                constraints.push((fun_type, Type::Fun(arg_type, result_type_boxed)));
 
-                if !unify(&mut fun_type, &mut infered_fun_type) {
-                    panic!("could not unify {fun_type_old} and {infered_fun_type_old}");
+                InferenceResult {
+                    type_: result_type,
+                    constraints
                 }
-                
-                let Type::Fun(_, return_type) = fun_type
-                    else { unreachable!("fun type have been unified successfully") };
-
-                *return_type
             },
-            ExpressionData::StringLiteral(_) => Type::Atom("string".to_string()),
-            ExpressionData::IntLiteral(_) => Type::Atom("int".to_string()),
-            ExpressionData::Variable(v) => {
+            ExpressionData::Variable(v) => 
                 match self.variables.get(v) {
-                    Some(ty) => ty.clone(),
+                    Some(ty) => InferenceResult { type_: ty.clone(), constraints: vec![] },
                     None => panic!("unknown variable {v}")
-                }
-            },
-        })
+                },
+            ExpressionData::StringLiteral(_) => InferenceResult { type_: Type::Atom("string".to_string()), constraints: vec![] },
+            ExpressionData::IntLiteral(_)    => InferenceResult { type_: Type::Atom("int"   .to_string()), constraints: vec![] }
+        }
     }
 }
 
 pub fn infer_type(expr: &mut Expression) {
-    let ctx = Context { variables: HashMap::new() };
-    ctx.infer_type(expr);
+    let ctx = Environment { variables: HashMap::new() };
+
+    let InferenceResult { mut type_, constraints } = ctx.infer_type(expr);
+
+    unify(constraints, &mut type_);
+    
+    expr.type_ = Some(type_);
 }

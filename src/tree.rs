@@ -22,7 +22,12 @@ pub enum ExpressionData {
 pub enum Type {
     Atom(String),
     Var(usize),
+    PolymorphicVar(usize),
     Fun(Box<Type>, Box<Type>),
+    Polymorphic {
+        variables: Vec<usize>,
+        matrix: Box<Type>
+    },
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -43,8 +48,17 @@ impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::Atom(name) => write!(f, "{name}"),
-            Type::Var(name) => write!(f, "'{name}"),
-            Type::Fun(from, to) => write!(f, "({from} -> {to})")
+            Type::Var(name) => write!(f, "''{name}"),
+            Type::PolymorphicVar(name) => write!(f, "'{name}"),
+            Type::Fun(from, to) => write!(f, "({from} -> {to})"),
+            Type::Polymorphic { variables, matrix } => {
+                write!(f, "∀")?;
+                for v in variables {
+                    write!(f, " {v}")?;
+                }
+                write!(f, ", ")?;
+                write!(f, "{}", *matrix)
+            }
         }
     }
 }

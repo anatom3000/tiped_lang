@@ -54,12 +54,20 @@ struct InferenceResult {
 #[derive(Debug, Clone)]
 pub struct Environment {
     variables: HashMap<String, Type>,
-    type_variables: HashSet<usize>
+    type_variables: HashSet<usize>,
+    parent_type_variables: HashSet<usize>,
 }
 
 impl Environment {
     fn add_variable(&mut self, name: String, ty: Type) {
         self.variables.insert(name, ty);
+    }
+
+    fn sub(&self) -> Self {
+        let mut new = self.clone();
+        new.parent_type_variables = new.parent_type_variables.clone();
+
+        new
     }
     
     fn new_var(&mut self) -> Type {
@@ -140,10 +148,11 @@ impl Environment {
         variables.dedup();
 
         for v in &variables {
-            if !self.type_variables.contains(v) {
+            if !self.parent_type_variables.contains(v) {
                 substitute(*v, &Type::PolymorphicVar(*v), &mut ty);
             }
         }
+
         Type::Polymorphic {
             variables,
             matrix: Box::new(ty),
@@ -166,7 +175,7 @@ impl Environment {
             },
             ExpressionData::Fun { arg: (arg_name, _ /* == None */), body } => {
                 
-                let mut with_arg = self.clone();
+                let mut with_arg = self.sub();
                 let arg_type = with_arg.new_var();
 
                 with_arg.add_variable(arg_name.to_string(), arg_type.clone());
@@ -212,11 +221,15 @@ impl Environment {
 }
 
 pub fn infer_type(expr: &mut Expression) {
-    let mut ctx = Environment { variables: HashMap::new(), type_variables: HashSet::new() };
+    let mut ctx = Environment {
+        variables: HashMap::new(), 
+        type_variables: HashSet::new(),
+        parent_type_variables: HashSet::new(),
+    };
 
-    let InferenceResult { mut type_, constraints } = ctx.infer_type(expr);
+    let InferenceResult { type_, constraints } = ctx.infer_type(expr);
 
-    ctx.unify(constraints, &mut type_);
+    let type_ = ctx.generalize(constraints, type_);
     
     expr.type_ = Some(type_);
 }

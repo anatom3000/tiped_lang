@@ -1,3 +1,5 @@
 let id = fun x -> x in
 let _ = id(42) in
-id("42")
+let _ = id("42") in
+id
+

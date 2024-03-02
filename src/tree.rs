@@ -54,7 +54,7 @@ impl Display for Type {
             Type::Polymorphic { variables, matrix } => {
                 write!(f, "∀")?;
                 for v in variables {
-                    write!(f, " {v}")?;
+                    write!(f, " '{v}")?;
                 }
                 write!(f, ", ")?;
                 write!(f, "{}", *matrix)

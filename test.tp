@@ -1,5 +1,21 @@
-let id = fun x -> x in
-let _ = id(42) in
-let _ = id("42") in
-id
+type unit
+let unit = extern unit
 
+type never
+
+type bool
+let true = extern bool
+let false = extern bool
+
+let print_endline = extern (string -> unit)
+let to_string = extern ('a -> string)
+let loop = extern (unit -> unit) -> never // let rec loop f = f (); loop f
+
+let id = fun x -> x
+
+let inspect = fun x ->
+  let _ = print_endline(to_string(x)) in
+  x
+
+let spam = fun msg ->
+  loop (fun _ -> print_endline(msg))

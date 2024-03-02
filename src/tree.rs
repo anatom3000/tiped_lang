@@ -42,6 +42,21 @@ impl Expression {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum Declaration {
+    Let {
+        name: String,
+        value: Expression,
+    },
+    ExternLet {
+        name: String,
+        type_: Type,
+    },
+    Type {
+        name: String,
+    }
+}
+
 use std::fmt::Display;
 
 impl Display for Type {
@@ -94,6 +109,16 @@ impl Display for ExpressionData {
                 write!(f, "{value}"),
             ExpressionData::Variable(name) => 
                 write!(f, "{name}"),
+        }
+    }
+}
+
+impl Display for Declaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Declaration::Let { name, value } => write!(f, "let {name} = {value}"),
+            Declaration::ExternLet { name, type_ } => write!(f, "let {name} = extern {type_}"),
+            Declaration::Type { name } => write!(f, "type {name}"),
         }
     }
 }

@@ -14,10 +14,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(tokens.errors.is_empty());
 
-    let mut expr = parser::Parser::new(tokens.tokens).parse();
-    typer::infer_type(&mut expr);
+    let decls = parser::Parser::new(tokens.tokens).parse();
     
-    println!("Type of program: {}", expr.type_.expect("expr was typed above"));
+    let mut env = typer::Environment::new();
+    for d in decls {
+        env.declaration(d);
+    }
 
     Ok(())
 }

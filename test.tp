@@ -1,11 +1,11 @@
 type unit
-let unit = extern unit
+  let unit = extern unit
 
 type never
 
 type bool
-let true = extern bool
-let false = extern bool
+  let true = extern bool
+  let false = extern bool
 
 type 'a list
   let nil = extern 'a list

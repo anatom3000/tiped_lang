@@ -8,8 +8,8 @@ let true = extern bool
 let false = extern bool
 
 type 'a list
-let nil = extern 'a list
-let cons = extern 'a -> 'a list -> 'a list
+  let nil = extern 'a list
+  let cons = extern 'a -> 'a list -> 'a list
 
 // type-equivalent of a match for a list
 let match_list = extern 
@@ -43,3 +43,13 @@ let map =
         cons (f(h)) (rec(f)(t))
       )
   in fix(map_inner)
+
+
+let fold = 
+  let fold_inner = fun rec -> fun zero -> fun op -> fun lst ->
+    match_list (lst)
+      (fun _ -> zero)
+      (fun h -> fun t ->
+          op(h)(rec(zero)(op)(t))
+      )
+  in fix(fold_inner)

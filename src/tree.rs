@@ -86,7 +86,10 @@ impl Display for Type {
             Type::Atom(name) => write!(f, "{name}"),
             Type::Var(name) => write!(f, "^{name}"),
             Type::PolymorphicVar(name) => write!(f, "'{}", type_variable_id_to_name(*name)),
-            Type::Fun(from, to) => write!(f, "({from} -> {to})"),
+            Type::Fun(from, to) => match **from {
+                Type::Fun(_, _) => write!(f, "({from}) -> {to}"),
+                _ => write!(f, "{from} -> {to}"),
+            },
             Type::ParameterizedAtom { name, parameters } => {
                 for p in parameters {
                     write!(f, "{p} ")?;

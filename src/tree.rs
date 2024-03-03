@@ -22,11 +22,15 @@ pub enum ExpressionData {
 pub enum Type {
     Atom(String),
     Var(usize),
-    PolymorphicVar(usize),
     Fun(Box<Type>, Box<Type>),
     Polymorphic {
         variables: Vec<usize>,
         matrix: Box<Type>
+    },
+    PolymorphicVar(usize),
+    ParameterizedAtom {
+        name: String,
+        parameters: Vec<Type>,
     },
 }
 
@@ -54,40 +58,49 @@ pub enum Declaration {
     },
     Type {
         name: String,
+        parameter_count: usize,
     }
 }
 
 use std::fmt::Display;
 
+
+fn type_variable_id_to_name(id: usize) -> String {
+    let id = id - 1;
+
+    let big_index = id / 26;
+    let small_index = id % 26;
+    let c = (('a' as u8) + small_index as u8) as char;
+    
+    if big_index == 0 {
+        format!("{c}")
+    } else {
+        format!("{c}{big_index}")
+    }
+}
+
+
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn id_to_name(id: usize) -> String {
-            let id = id - 1;
-
-            let big_index = id / 26;
-            let small_index = id % 26;
-            let c = (('a' as u8) + small_index as u8) as char;
-            
-            if big_index == 0 {
-                format!("{c}")
-            } else {
-                format!("{c}{big_index}")
-            }
-        }
-
         match self {
             Type::Atom(name) => write!(f, "{name}"),
             Type::Var(name) => write!(f, "^{name}"),
-            Type::PolymorphicVar(name) => write!(f, "'{}", id_to_name(*name)),
+            Type::PolymorphicVar(name) => write!(f, "'{}", type_variable_id_to_name(*name)),
             Type::Fun(from, to) => write!(f, "({from} -> {to})"),
+            Type::ParameterizedAtom { name, parameters } => {
+                for p in parameters {
+                    write!(f, "{p} ")?;
+                }
+                write!(f, "{name}")
+            },
             Type::Polymorphic { variables, matrix } => {
                 write!(f, "∀")?;
                 for v in variables {
-                    write!(f, " '{}", id_to_name(*v))?;
+                    write!(f, " '{}", type_variable_id_to_name(*v))?;
                 }
                 write!(f, ", ")?;
                 write!(f, "{}", *matrix)
-            }
+            },
         }
     }
 }
@@ -132,7 +145,14 @@ impl Display for Declaration {
         match self {
             Declaration::Let { name, value } => write!(f, "let {name} = {value}"),
             Declaration::ExternLet { name, type_ } => write!(f, "let {name} = extern {type_}"),
-            Declaration::Type { name } => write!(f, "type {name}"),
+            Declaration::Type { name, parameter_count } => {
+                write!(f, "type ")?;
+                for i in 1..=*parameter_count {
+                    write!(f, "{} ", type_variable_id_to_name(i))?;
+                }
+
+                write!(f, "{name}")
+            },
         }
     }
 }

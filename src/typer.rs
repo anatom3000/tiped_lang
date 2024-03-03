@@ -6,6 +6,7 @@ fn occurs_in(variable: usize, term: &Type) -> bool {
     match term {
         Type::Var(name) => &variable == name,
         Type::Fun(from, to) => occurs_in(variable, &from) || occurs_in(variable, &to),
+        Type::ParameterizedAtom { name: _, parameters } => parameters.into_iter().any(|p| occurs_in(variable, p)),
         Type::Atom(_) | Type::PolymorphicVar(_) => false,
         Type::Polymorphic {
             variables: _,
@@ -20,6 +21,11 @@ fn substitute(old: usize, new: &Type, expr: &mut Type) {
         Type::Fun(from, to) => {
             substitute(old, new, from);
             substitute(old, new, to);
+        },
+        Type::ParameterizedAtom { name: _, parameters } => {
+            for p in parameters {
+                substitute(old, new, p);
+            }
         }
         Type::Polymorphic {
             variables: _,
@@ -39,6 +45,11 @@ fn substitute_polymorphic_variables(old: usize, new: &Type, expr: &mut Type) {
         Type::Fun(from, to) => {
             substitute_polymorphic_variables(old, new, from);
             substitute_polymorphic_variables(old, new, to);
+        },
+        Type::ParameterizedAtom { name: _, parameters } => {
+            for p in parameters {
+                substitute_polymorphic_variables(old, new, p);
+            }
         }
         Type::PolymorphicVar(_) | Type::Atom(_) | Type::Var(_) => (),
     }
@@ -54,7 +65,7 @@ pub struct Environment {
     variables: HashMap<String, Type>,
     type_variables: HashSet<usize>,
     parent_type_variables: HashSet<usize>,
-    type_atoms: HashSet<String>,
+    type_atoms: HashMap<String, usize>, // only store the arity of the atom
 }
 
 impl Environment {
@@ -64,8 +75,14 @@ impl Environment {
 
     fn assert_is_valid(&self, ty: &Type) {
         match ty {
-            Type::Atom(name) => if !self.type_atoms.contains(name) {
-                panic!("unknown type {name}")
+            Type::Atom(name) => {
+                if !self.type_atoms.contains_key(name) {
+                    panic!("unknown type {name}")
+                }
+
+                if self.type_atoms[name] != 0 {
+                    panic!("wrong number of parameters for type {name}, expected {}, found 0", self.type_atoms[name]);
+                }
             },
             Type::Var(v) => if !self.type_variables.contains(v) {
                 panic!("unknown type variable '{v}");
@@ -75,6 +92,19 @@ impl Environment {
                 self.assert_is_valid(from);
                 self.assert_is_valid(to);
             },
+            Type::ParameterizedAtom { name, parameters } => {
+                if !self.type_atoms.contains_key(name) {
+                    panic!("unknown type {name}");
+                }
+
+                if self.type_atoms[name] != parameters.len() {
+                    panic!("wrong number of parameters for type {name}, expected {}, found {}", self.type_atoms[name], parameters.len());
+                }
+
+                for p in parameters {
+                    self.assert_is_valid(p);
+                }
+            }
             Type::Polymorphic { variables: _, matrix } => self.assert_is_valid(matrix),
         }
     }
@@ -101,6 +131,7 @@ impl Environment {
                 *matrix
             },
             Type::PolymorphicVar(_) => unreachable!("a polymorphic variable should not be alone"),
+            | Type::ParameterizedAtom {..}
             | Type::Fun(_, _) // all polymorphic types are in prenex form
             | Type::Atom(_)
             | Type::Var(_) => ty,
@@ -117,6 +148,12 @@ impl Environment {
                 (Fun(from1, to1), Fun(from2, to2)) => {
                     constraints.push((*from1, *from2));
                     constraints.push((*to1, *to2));
+                },
+                (ParameterizedAtom { name: name1, parameters: parameters1 },
+                 ParameterizedAtom { name: name2, parameters: parameters2 }) if name1 == name2 => {
+                    for (p1, p2) in parameters1.into_iter().zip(parameters2) {
+                        constraints.push((p1, p2))
+                    }
                 }
                 (Var(variable), value) | (value, Var(variable)) if !occurs_in(variable, &value) => {
                     for (left, right) in &mut constraints {
@@ -150,8 +187,18 @@ impl Environment {
                     from_vars.append(&mut to_vars);
                     from_vars
                 }
-                Type::Polymorphic { .. } | Type::PolymorphicVar(_) => {
-                    unreachable!("type shouldn't be polymorphic while generalizing")
+                Type::ParameterizedAtom { name: _, parameters } => {
+                    let mut param_vars = vec![];
+
+                    for p in parameters {
+                        // potential duplicates!
+                        param_vars.append(&mut vars(p));
+                    }
+                
+                    param_vars
+                }
+                Type::Polymorphic { .. } | Type::PolymorphicVar(_)  => {
+                    unreachable!("type shouldn't be polymorphic after unification")
                 }
             }
         }
@@ -286,7 +333,10 @@ impl Environment {
             variables: HashMap::new(),
             type_variables: HashSet::new(),
             parent_type_variables: HashSet::new(),
-            type_atoms: HashSet::from(["int".to_string(), "string".to_string()]),
+            type_atoms: HashMap::from([ // primitive types
+                ("int".to_string(), 0), 
+                ("string".to_string(), 0),
+            ]),
         }
     }
 
@@ -304,9 +354,9 @@ impl Environment {
                 println!("# extern {name}: {type_}");
                 self.add_variable(name, type_);
             },
-            Declaration::Type { name } => {
+            Declaration::Type { name, parameter_count } => {
                 println!("# type {name}");
-                self.type_atoms.insert(name);
+                self.type_atoms.insert(name, parameter_count);
             },
         }
     }

@@ -7,6 +7,11 @@ type bool
 let true = extern bool
 let false = extern bool
 
+// the plan
+type 'a list
+let nil = extern unit -> 'a list
+let cons = extern 'a -> 'a list -> 'a list
+
 let print_endline = extern (string -> unit)
 let to_string = extern ('a -> string)
 let loop = extern (unit -> unit) -> never // let rec loop f = f (); loop f

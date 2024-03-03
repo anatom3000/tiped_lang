@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::lexer::{Token, TokenData};
 use crate::tree::{Declaration, Expression, ExpressionData, Type};
@@ -68,12 +68,47 @@ impl Parser {
         }
     }
 
+    fn parameterized_atom(&mut self, parameters: &mut HashSet<String>) {
+        while let Some(TokenData::Tick) = self.current_token() {
+            self.current += 1;
+            match self.current_token() {
+                Some(TokenData::Identifier(p)) => {
+                    if parameters.contains(p) {
+                        panic!("type parameter '{p} occurs several times");
+                    }
+                    parameters.insert(p.to_string());
+
+                    self.current += 1;
+                }
+                Some(other) => panic!("expected identifier after `'`, found {other:?}"),
+                None => panic!("expected identifier after `'`, found EOF"),
+            }
+        }
+    }
+
     fn type_decl(&mut self) -> Declaration {
         match self.current_token() {
             Some(TokenData::Identifier(name)) => {
                 let name = name.to_string();
                 self.current += 1;
-                Declaration::Type { name }
+                Declaration::Type { name, parameter_count: 0 }
+            },
+            Some(TokenData::Tick) => { // parameterized atom
+                let mut parameters = HashSet::new();
+                self.parameterized_atom(&mut parameters);
+                
+                let name = match self.current_token() {
+                    Some(TokenData::Identifier(name)) => {
+                        let name = name.to_string();
+                        self.current += 1;
+                        name
+                    },
+                    Some(other) => panic!("expected identifier after `'`, found {other:?}"),
+                    None => panic!("expected identifier after `'`, found EOF"),
+                };
+                
+                Declaration::Type { name, parameter_count: parameters.len() }
+
             }
             Some(other) => panic!("expected identifier after `type`, found {other:?}"),
             None => panic!("expected identifier after `type`, found EOF"),
@@ -108,9 +143,50 @@ impl Parser {
                 match self.current_token() {
                     Some(TokenData::Identifier(v)) => {
                         let count = variables.len();
+
                         let v = variables.entry(v.to_string()).or_insert(count+1);
                         self.current += 1;
-                        Type::PolymorphicVar(*v)
+
+                        let v = Type::PolymorphicVar(*v);
+
+                        match self.current_token() {
+                            Some(TokenData::Identifier(name)) => {
+                                let name = name.to_string();
+                                self.current += 1;
+                                Type::ParameterizedAtom { name, parameters: vec![v] }
+                            },
+                            Some(TokenData::Tick) => {
+                                let mut parameters = vec![v];
+                                    
+                                while let Some(TokenData::Tick) = self.current_token() {
+                                    self.current += 1;
+                                    match self.current_token() {
+                                        Some(TokenData::Identifier(p)) => {
+                                            let p = variables.entry(p.to_string()).or_insert(count+1);
+                                            parameters.push(Type::PolymorphicVar(*p));
+
+                                            self.current += 1;
+                                        }
+                                        Some(other) => panic!("expected identifier after `'`, found {other:?}"),
+                                        None => panic!("expected identifier after `'`, found EOF"),
+                                    }
+                                }
+
+                                let name = match self.current_token() {
+                                    Some(TokenData::Identifier(name)) => {
+                                        let name = name.to_string();
+                                        self.current += 1;
+                                        name
+                                    },
+                                    Some(other) => panic!("expected identifier after `'`, found {other:?}"),
+                                    None => panic!("expected identifier after `'`, found EOF"),
+                                };
+
+
+                                Type::ParameterizedAtom { name, parameters }
+                            }
+                            _ => v,
+                        }
                     },
                     Some(other) => panic!("expected identifier after `'`, found {other:?}"),
                     None => panic!("expected identifier after `'`, found EOF"),

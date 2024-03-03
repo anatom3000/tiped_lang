@@ -11,6 +11,8 @@ let print_endline = extern (string -> unit)
 let to_string = extern ('a -> string)
 let loop = extern (unit -> unit) -> never // let rec loop f = f (); loop f
 
+let too_much_generic = extern ('a -> 'b) -> 'a -> 'b
+
 let id = fun x -> x
 
 let inspect = fun x ->

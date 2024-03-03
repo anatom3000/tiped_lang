@@ -61,15 +61,29 @@ use std::fmt::Display;
 
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn id_to_name(id: usize) -> String {
+            let id = id - 1;
+
+            let big_index = id / 26;
+            let small_index = id % 26;
+            let c = (('a' as u8) + small_index as u8) as char;
+            
+            if big_index == 0 {
+                format!("{c}")
+            } else {
+                format!("{c}{big_index}")
+            }
+        }
+
         match self {
             Type::Atom(name) => write!(f, "{name}"),
-            Type::Var(name) => write!(f, "''{name}"),
-            Type::PolymorphicVar(name) => write!(f, "'{name}"),
+            Type::Var(name) => write!(f, "^{}", id_to_name(*name)),
+            Type::PolymorphicVar(name) => write!(f, "'{}", id_to_name(*name)),
             Type::Fun(from, to) => write!(f, "({from} -> {to})"),
             Type::Polymorphic { variables, matrix } => {
                 write!(f, "∀")?;
                 for v in variables {
-                    write!(f, " '{v}")?;
+                    write!(f, " '{}", id_to_name(*v))?;
                 }
                 write!(f, ", ")?;
                 write!(f, "{}", *matrix)

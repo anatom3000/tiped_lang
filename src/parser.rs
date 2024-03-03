@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lexer::{Token, TokenData};
 use crate::tree::{Declaration, Expression, ExpressionData, Type};
 
@@ -79,13 +81,13 @@ impl Parser {
     }
 
     fn type_(&mut self) -> Type {
-        let mut variable_count = 0;
-        let ty = self.type_matrix(&mut variable_count);
+        let mut variables = HashMap::new();
+        let ty = self.type_matrix(&mut variables);
         
-        if variable_count == 0 {
+        if variables.is_empty() {
             ty
         } else {
-            let variables = (1..=variable_count).collect();
+            let variables = (1..=variables.len()).collect();
             
             Type::Polymorphic {
                 variables,
@@ -94,7 +96,7 @@ impl Parser {
         }
     }
 
-    fn type_matrix(&mut self, variable_count: &mut usize) -> Type {
+    fn type_matrix(&mut self, variables: &mut HashMap<String, usize>) -> Type {
         let ty = match self.current_token() {
             Some(TokenData::Identifier(name)) => {
                 let name = name.to_string();
@@ -104,10 +106,11 @@ impl Parser {
             Some(TokenData::Tick) => {
                 self.current += 1;
                 match self.current_token() {
-                    Some(TokenData::Identifier(_)) => {
+                    Some(TokenData::Identifier(v)) => {
+                        let count = variables.len();
+                        let v = variables.entry(v.to_string()).or_insert(count+1);
                         self.current += 1;
-                        *variable_count += 1;
-                        Type::PolymorphicVar(*variable_count)
+                        Type::PolymorphicVar(*v)
                     },
                     Some(other) => panic!("expected identifier after `'`, found {other:?}"),
                     None => panic!("expected identifier after `'`, found EOF"),
@@ -116,7 +119,7 @@ impl Parser {
             },
             Some(TokenData::LeftParen) => {
                 self.current += 1;
-                let ty = self.type_matrix(variable_count);
+                let ty = self.type_matrix(variables);
                 self.expect(TokenData::RightParen);
                 ty
             },
@@ -127,7 +130,7 @@ impl Parser {
         match self.current_token() {
             Some(TokenData::Arrow) => {
                 self.current += 1;
-                let to = self.type_matrix(variable_count);
+                let to = self.type_matrix(variables);
                 
                 let from = Box::new(ty);
                 let to = Box::new(to);

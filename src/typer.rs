@@ -298,11 +298,11 @@ impl Environment {
             Declaration::ExternLet { name, type_ } => {
                 self.assert_is_valid(&type_);
                 
-                //println!("extern {name}: {type_}");
+                println!("# extern {name}: {type_}");
                 self.add_variable(name, type_);
             },
             Declaration::Type { name } => {
-                //println!("type {name}");
+                println!("# type {name}");
                 self.type_atoms.insert(name);
             },
         }

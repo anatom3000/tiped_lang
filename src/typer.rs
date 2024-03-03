@@ -328,8 +328,9 @@ impl Environment {
         // it fails when type checking map,
         // yet the type checker produces correct results
         // assert!(self.type_variables.is_empty());
+        
         self.type_variables.clear();
-
+        
         type_
     }
 
@@ -350,17 +351,17 @@ impl Environment {
             Declaration::Let { name, value } => {
                 let type_ = self.infer_type(value);
 
-                println!("{name}: {type_}");
+                println!("- {name}: {type_}");
                 self.add_variable(name.clone(), type_);
             },
             Declaration::ExternLet { name, type_ } => {
                 self.assert_is_valid(&type_);
                 
-                println!("# extern {name}: {type_}");
+                println!("- extern {name}: {type_}");
                 self.add_variable(name, type_);
             },
             Declaration::Type { name, parameter_count } => {
-                println!("# type {name}");
+                println!("- type {name}");
                 self.type_atoms.insert(name, parameter_count);
             },
         }

@@ -19,7 +19,7 @@ let match_list = extern
   'b                        // result
 
 
-let print_endline = extern (string -> unit)
+let println = extern (string -> unit)
 let to_string = extern ('a -> string)
 let loop = extern (unit -> unit) -> never // let rec loop f = f (); loop f
 
@@ -29,27 +29,26 @@ let fix = extern (('a -> 'b) -> 'a -> 'b) -> 'a -> 'b
 let id = (fun x -> x)(fun x -> x)
 
 let inspect = fun x ->
-  let _ = print_endline(to_string(x)) in
+  let _ = println(to_string(x)) in
   x
 
 let spam = fun msg ->
-  loop (fun _ -> print_endline(msg))
+  loop (fun -> println(msg))
 
 let map =
-  let map_inner = fun rec -> fun f -> fun lst ->
-    match_list (lst)
-      (fun _ -> nil)
-      (fun h -> fun t ->
-        cons (f(h)) (rec(f)(t))
-      )
+  let map_inner = fun rec f lst ->
+    match_list (lst,
+      fun -> nil,
+      fun h t -> cons(f(h), rec(f, t)),
+    )
   in fix(map_inner)
 
-
 let fold = 
-  let fold_inner = fun rec -> fun zero -> fun op -> fun lst ->
-    match_list (lst)
-      (fun _ -> zero)
-      (fun h -> fun t ->
-          op(h)(rec(zero)(op)(t))
-      )
-  in fix(fold_inner)
+  let fold_inner = fun rec zero op lst ->
+    match_list (lst,
+      fun -> zero,
+      fun h t -> op(h, rec(zero, op, t))
+    )
+ in fix(fold_inner)
+
+let hello = fun -> println("Hello, World!")

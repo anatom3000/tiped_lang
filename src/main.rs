@@ -11,8 +11,6 @@ fn process_file(path: String) -> Result<typer::Environment, Box<dyn Error>> {
 
     process(&source, &mut env);
 
-    println!("---");
-
     Ok(env)
 }
 
@@ -40,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     loop {
         input.clear();
-        print!("> ");
+        print!("#> ");
         std::io::stdout().flush()?;
 
         while &input[(input.len() as isize - 2).max(0) as usize..] != ";\n" {

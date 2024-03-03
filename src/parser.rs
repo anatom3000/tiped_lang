@@ -260,14 +260,34 @@ impl Parser {
 
         while let Some(TokenData::LeftParen) = self.current_token() {
             self.current += 1;
-            let arg = self.expression();
+
+            let mut args = vec![];
+            loop {
+                args.push(self.expression());
+
+                match self.current_token() {
+                    Some(TokenData::Comma) => {
+                        self.current += 1;
+                        if let Some(TokenData::RightParen) = self.current_token() {
+                            break;
+                        } else {
+                            continue;
+                        }
+                    },
+                    Some(TokenData::RightParen) => break,
+                    Some(other) => panic!("expected `,` or `)` after expression in function application, found {other:?}"),
+                    None => panic!("expected `,` or `)` after expression in function application, found EOF"),
+                }
+            }
 
             self.expect(TokenData::RightParen);
 
-            expr = Expression::untyped(ExpressionData::App {
-                fun: Box::new(expr),
-                arg: Box::new(arg),
-            })
+            for arg in args {
+                expr = Expression::untyped(ExpressionData::App {
+                    fun: Box::new(expr),
+                    arg: Box::new(arg),
+                });
+            }
         }
 
         expr
@@ -289,20 +309,40 @@ impl Parser {
     }
 
     fn fun(&mut self) -> Expression {
-        let Some(TokenData::Identifier(arg)) = self.current_token() else
-            { panic!("expected argument after `fun`") };
+        let mut args = vec![];
+        
+        loop {
+            match self.current_token() {
+                Some(TokenData::Identifier(arg)) => {
+                    let arg = arg.to_string();
+                    self.current += 1;
 
-        let arg = arg.to_string();
-        self.current += 1;
+                    args.push(arg);
+                },
+                Some(TokenData::Arrow) => break,
+                Some(other) => panic!("expected argument or `->` in fun head, found {other:?}"),
+                None => panic!("expected argument or `->` in fun head, found EOF"),
+            }
+        }
+
+        // you can write "fun -> e" instead of "fun _ -> e" for procedures
+        if args.is_empty() {
+            args.push("_".to_string());
+        };
 
         self.expect(TokenData::Arrow);
 
         let body = self.expression();
-
-        Expression::untyped(ExpressionData::Fun {
-            arg: (arg, None),
-            body: Box::new(body),
-        })
+        
+        let mut expr = body;
+        for arg in args.into_iter().rev() {
+            expr = Expression::untyped(ExpressionData::Fun {
+                arg: (arg, None),
+                body: Box::new(expr),
+            });
+        }
+        
+        expr
     }
 
     fn expect(&mut self, expected: TokenData) {

@@ -166,12 +166,16 @@ impl Environment {
 
         variables.sort();
         variables.dedup();
-
+        
+        let mut next_poly_var = 0;
         for v in &variables {
             if !self.parent_type_variables.contains(v) {
-                substitute(*v, &Type::PolymorphicVar(*v), &mut ty);
+                next_poly_var += 1;
+                substitute(*v, &Type::PolymorphicVar(next_poly_var), &mut ty);
             }
         }
+
+        let variables = (1..=variables.len()).collect();
 
         Type::Polymorphic {
             variables,

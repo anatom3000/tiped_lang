@@ -44,9 +44,6 @@ fn substitute_polymorphic_variables(old: usize, new: &Type, expr: &mut Type) {
     }
 }
 
-// TODO: add this ugly global variable
-static mut NEXT_FRESH_VARIABLE: usize = 0;
-
 struct ConstraintBuildingResult {
     type_: Type,
     constraints: Vec<(Type, Type)>,
@@ -89,19 +86,17 @@ impl Environment {
         new
     }
 
-    fn new_var(&mut self) -> Type {
-        unsafe {
-            NEXT_FRESH_VARIABLE += 1;
-        }
-        self.type_variables.insert(unsafe { NEXT_FRESH_VARIABLE });
-        Type::Var(unsafe { NEXT_FRESH_VARIABLE })
+    fn new_var(&mut self, next_fresh_variable: &mut usize) -> Type {
+        *next_fresh_variable += 1;
+        self.type_variables.insert(*next_fresh_variable);
+        Type::Var(*next_fresh_variable)
     }
 
-    fn instantiate(&mut self, ty: Type) -> Type {
+    fn instantiate(&mut self, ty: Type, next_fresh_variable: &mut usize) -> Type {
         match ty {
             Type::Polymorphic { variables, mut matrix } => {
                 for v in variables {
-                    substitute_polymorphic_variables(v, &self.new_var(), &mut matrix);
+                    substitute_polymorphic_variables(v, &self.new_var(next_fresh_variable), &mut matrix);
                 }
                 *matrix
             },
@@ -184,20 +179,20 @@ impl Environment {
         }
     }
 
-    fn build_constraints(&mut self, expr: &Expression) -> ConstraintBuildingResult {
+    fn build_constraints(&mut self, expr: &Expression, next_fresh_variable: &mut usize) -> ConstraintBuildingResult {
         match &expr.data {
             ExpressionData::LetIn { name, value, body } => {
                 let ConstraintBuildingResult {
                     type_: value_type,
                     constraints: value_constraints,
-                } = self.build_constraints(value);
+                } = self.build_constraints(value, next_fresh_variable);
                 let value_type = self.generalize(value_constraints.clone(), value_type);
                 self.add_variable(name.to_string(), value_type.clone());
 
                 let ConstraintBuildingResult {
                     type_: body_type,
                     constraints: mut body_constraints,
-                } = self.build_constraints(body);
+                } = self.build_constraints(body, next_fresh_variable);
 
                 let mut constraints = value_constraints;
                 constraints.append(&mut body_constraints);
@@ -212,14 +207,14 @@ impl Environment {
                 body,
             } => {
                 let mut with_arg = self.sub();
-                let arg_type = with_arg.new_var();
+                let arg_type = with_arg.new_var(next_fresh_variable);
 
                 with_arg.add_variable(arg_name.to_string(), arg_type.clone());
 
                 let ConstraintBuildingResult {
                     type_: body_type,
                     constraints,
-                } = with_arg.build_constraints(body);
+                } = with_arg.build_constraints(body, next_fresh_variable);
 
                 let arg_type = Box::new(arg_type);
                 let body_type = Box::new(body_type);
@@ -230,16 +225,16 @@ impl Environment {
                 }
             }
             ExpressionData::App { fun, arg } => {
-                let result_type = self.new_var();
+                let result_type = self.new_var(next_fresh_variable);
 
                 let ConstraintBuildingResult {
                     type_: fun_type,
                     constraints: fun_constraints,
-                } = self.build_constraints(fun);
+                } = self.build_constraints(fun, next_fresh_variable);
                 let ConstraintBuildingResult {
                     type_: arg_type,
                     constraints: mut arg_constraints,
-                } = self.build_constraints(arg);
+                } = self.build_constraints(arg, next_fresh_variable);
 
                 let mut constraints = fun_constraints;
                 constraints.append(&mut arg_constraints);
@@ -256,7 +251,7 @@ impl Environment {
             }
             ExpressionData::Variable(v) => match self.variables.get(v) {
                 Some(ty) => ConstraintBuildingResult {
-                    type_: self.instantiate(ty.clone()),
+                    type_: self.instantiate(ty.clone(), next_fresh_variable),
                     constraints: vec![],
                 },
                 None => panic!("unknown variable {v}"),
@@ -273,9 +268,13 @@ impl Environment {
     }
 
     fn infer_type(&mut self, expr: Expression) -> Type {
-        let ConstraintBuildingResult { type_, constraints } = self.build_constraints(&expr);
-
-        self.generalize(constraints, type_)
+        let mut next_fresh_variable = 0;
+        let ConstraintBuildingResult { type_, constraints } = self.build_constraints(&expr, &mut next_fresh_variable);
+        
+        let type_ = self.generalize(constraints, type_);
+            
+        assert!(self.type_variables.is_empty());
+        type_
     }
 
     pub fn new() -> Self {

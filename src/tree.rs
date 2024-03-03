@@ -77,7 +77,7 @@ impl Display for Type {
 
         match self {
             Type::Atom(name) => write!(f, "{name}"),
-            Type::Var(name) => write!(f, "^{}", id_to_name(*name)),
+            Type::Var(name) => write!(f, "^{name}"),
             Type::PolymorphicVar(name) => write!(f, "'{}", id_to_name(*name)),
             Type::Fun(from, to) => write!(f, "({from} -> {to})"),
             Type::Polymorphic { variables, matrix } => {

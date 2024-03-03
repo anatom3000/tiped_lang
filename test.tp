@@ -7,16 +7,24 @@ type bool
 let true = extern bool
 let false = extern bool
 
-// the plan
 type 'a list
-let nil = extern unit -> 'a list
+let nil = extern 'a list
 let cons = extern 'a -> 'a list -> 'a list
+
+// type-equivalent of a match for a list
+let match_list = extern 
+  'a list ->                // list to match
+  (unit -> 'b) ->           // nil case
+  ('a -> 'a list -> 'b) ->  // cons case
+  'b                        // result
+
 
 let print_endline = extern (string -> unit)
 let to_string = extern ('a -> string)
 let loop = extern (unit -> unit) -> never // let rec loop f = f (); loop f
 
-let too_much_generic = extern ('a -> 'b) -> 'a -> 'b
+// fixed-point combinator to avoid implementing recursion for now
+let fix = extern (('a -> 'b) -> 'a -> 'b) -> 'a -> 'b
 
 let id = (fun x -> x)(fun x -> x)
 
@@ -26,3 +34,12 @@ let inspect = fun x ->
 
 let spam = fun msg ->
   loop (fun _ -> print_endline(msg))
+
+let map =
+  let map_inner = fun rec -> fun f -> fun lst ->
+    match_list (lst)
+      (fun _ -> nil)
+      (fun h -> fun t ->
+        cons (f(h)) (rec(f)(t))
+      )
+  in fix(map_inner)

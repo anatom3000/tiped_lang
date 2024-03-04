@@ -15,7 +15,7 @@ fn process_file(path: String) -> Result<typer::Environment, Box<dyn Error>> {
 }
 
 fn process(source: &str, env: &mut typer::Environment) {
-    let tokens = lexer::Lexer::new(&source).lex();
+    let tokens = lexer::Lexer::new(source).lex();
 
     assert!(tokens.errors.is_empty());
 

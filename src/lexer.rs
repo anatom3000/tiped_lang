@@ -215,14 +215,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn digit_sequence(&mut self, start: &mut String) {
-        loop {
-            match self.chars.peek() {
-                Some('0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9') => {
-                    self.current_column += 1;
-                    start.push(self.chars.next().expect("peek was Some"));
-                }
-                _ => break,
-            };
+        while let Some('0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9') = self.chars.peek() {
+            self.current_column += 1;
+            start.push(self.chars.next().expect("peek was Some"));
         }
     }
 

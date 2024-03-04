@@ -5,11 +5,11 @@ use crate::tree::{Declaration, Expression, ExpressionData, Type};
 fn occurs_in(variable: usize, term: &Type) -> bool {
     match term {
         Type::Var(name) => &variable == name,
-        Type::Fun(from, to) => occurs_in(variable, &from) || occurs_in(variable, &to),
+        Type::Fun(from, to) => occurs_in(variable, from) || occurs_in(variable, to),
         Type::ParameterizedAtom {
             name: _,
             parameters,
-        } => parameters.into_iter().any(|p| occurs_in(variable, p)),
+        } => parameters.iter().any(|p| occurs_in(variable, p)),
         Type::Atom(_) | Type::PolymorphicVar(_) => false,
         Type::Polymorphic {
             variables: _,
@@ -192,7 +192,7 @@ impl Environment {
                     // apply substitution directly
                     // so we don't have to compute compositions of substitutions
                     substitute(variable, &value, type_);
-                    for (_, ty) in &mut self.variables {
+                    for ty in self.variables.values_mut() {
                         substitute(variable, &value, ty);
                     }
 
@@ -274,7 +274,7 @@ impl Environment {
                     constraints: value_constraints,
                 } = self.build_constraints(value, next_fresh_variable);
                 let value_type = self.generalize(value_constraints.clone(), value_type);
-                self.add_variable(name.to_string(), value_type.clone());
+                self.add_variable(name.to_string(), value_type);
 
                 let ConstraintBuildingResult {
                     type_: body_type,
@@ -390,7 +390,7 @@ impl Environment {
                 let type_ = self.infer_type(value);
 
                 println!("- {name}: {type_}");
-                self.add_variable(name.clone(), type_);
+                self.add_variable(name, type_);
             }
             Declaration::ExternLet { name, type_ } => {
                 self.assert_is_valid(&type_);

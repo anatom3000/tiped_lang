@@ -68,8 +68,8 @@ fn type_variable_id_to_name(id: usize) -> String {
     let id = id - 1;
 
     let big_index = id / 26;
-    let small_index = id % 26;
-    let c = (('a' as u8) + small_index as u8) as char;
+    let small_index = (id % 26) as u8;
+    let c = (b'a' + small_index) as char;
 
     if big_index == 0 {
         format!("{c}")
@@ -130,7 +130,7 @@ impl Display for ExpressionData {
                     None => write!(f, "{name} ")?,
                     Some(ty) => write!(f, "({name}: {ty}) ")?,
                 }
-                write!(f, "-> \n")?;
+                writeln!(f, "-> ")?;
                 write!(f, "({body})")
             }
             ExpressionData::App { fun, arg } => write!(f, "{fun}({arg})"),

@@ -1,4 +1,4 @@
-use std::{fs, error::Error, io::Write};
+use std::{error::Error, fs, io::Write};
 
 mod lexer;
 mod parser;
@@ -15,17 +15,15 @@ fn process_file(path: String) -> Result<typer::Environment, Box<dyn Error>> {
 }
 
 fn process(source: &str, env: &mut typer::Environment) {
-    
     let tokens = lexer::Lexer::new(&source).lex();
 
     assert!(tokens.errors.is_empty());
 
     let decls = parser::Parser::new(tokens.tokens).parse();
-    
+
     for d in decls {
         env.declaration(d);
     }
-
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -33,7 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(source_file_path) => process_file(source_file_path)?,
         None => typer::Environment::new(),
     };
-    
+
     let stdin = std::io::stdin();
     let mut input = String::new();
     loop {
@@ -47,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         input.pop();
         input.pop();
-        
+
         process(&input, &mut env);
     }
 }

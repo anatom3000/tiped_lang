@@ -60,7 +60,7 @@ impl Parser {
                 let type_ = self.type_();
 
                 Declaration::ExternLet { name, type_ }
-            },
+            }
             _ => {
                 let value = self.expression();
                 Declaration::Let { name, value }
@@ -91,24 +91,30 @@ impl Parser {
             Some(TokenData::Identifier(name)) => {
                 let name = name.to_string();
                 self.current += 1;
-                Declaration::Type { name, parameter_count: 0 }
-            },
-            Some(TokenData::Tick) => { // parameterized atom
+                Declaration::Type {
+                    name,
+                    parameter_count: 0,
+                }
+            }
+            Some(TokenData::Tick) => {
+                // parameterized atom
                 let mut parameters = HashSet::new();
                 self.parameterized_atom(&mut parameters);
-                
+
                 let name = match self.current_token() {
                     Some(TokenData::Identifier(name)) => {
                         let name = name.to_string();
                         self.current += 1;
                         name
-                    },
+                    }
                     Some(other) => panic!("expected identifier after `'`, found {other:?}"),
                     None => panic!("expected identifier after `'`, found EOF"),
                 };
-                
-                Declaration::Type { name, parameter_count: parameters.len() }
 
+                Declaration::Type {
+                    name,
+                    parameter_count: parameters.len(),
+                }
             }
             Some(other) => panic!("expected identifier after `type`, found {other:?}"),
             None => panic!("expected identifier after `type`, found EOF"),
@@ -118,12 +124,12 @@ impl Parser {
     fn type_(&mut self) -> Type {
         let mut variables = HashMap::new();
         let ty = self.type_matrix(&mut variables);
-        
+
         if variables.is_empty() {
             ty
         } else {
             let variables = (1..=variables.len()).collect();
-            
+
             Type::Polymorphic {
                 variables,
                 matrix: Box::new(ty),
@@ -137,14 +143,14 @@ impl Parser {
                 let name = name.to_string();
                 self.current += 1;
                 Type::Atom(name)
-            },
+            }
             Some(TokenData::Tick) => {
                 self.current += 1;
                 match self.current_token() {
                     Some(TokenData::Identifier(v)) => {
                         let count = variables.len();
 
-                        let v = variables.entry(v.to_string()).or_insert(count+1);
+                        let v = variables.entry(v.to_string()).or_insert(count + 1);
                         self.current += 1;
 
                         let v = Type::PolymorphicVar(*v);
@@ -153,21 +159,27 @@ impl Parser {
                             Some(TokenData::Identifier(name)) => {
                                 let name = name.to_string();
                                 self.current += 1;
-                                Type::ParameterizedAtom { name, parameters: vec![v] }
-                            },
+                                Type::ParameterizedAtom {
+                                    name,
+                                    parameters: vec![v],
+                                }
+                            }
                             Some(TokenData::Tick) => {
                                 let mut parameters = vec![v];
-                                    
+
                                 while let Some(TokenData::Tick) = self.current_token() {
                                     self.current += 1;
                                     match self.current_token() {
                                         Some(TokenData::Identifier(p)) => {
-                                            let p = variables.entry(p.to_string()).or_insert(count+1);
+                                            let p =
+                                                variables.entry(p.to_string()).or_insert(count + 1);
                                             parameters.push(Type::PolymorphicVar(*p));
 
                                             self.current += 1;
                                         }
-                                        Some(other) => panic!("expected identifier after `'`, found {other:?}"),
+                                        Some(other) => {
+                                            panic!("expected identifier after `'`, found {other:?}")
+                                        }
                                         None => panic!("expected identifier after `'`, found EOF"),
                                     }
                                 }
@@ -177,28 +189,28 @@ impl Parser {
                                         let name = name.to_string();
                                         self.current += 1;
                                         name
-                                    },
-                                    Some(other) => panic!("expected identifier after `'`, found {other:?}"),
+                                    }
+                                    Some(other) => {
+                                        panic!("expected identifier after `'`, found {other:?}")
+                                    }
                                     None => panic!("expected identifier after `'`, found EOF"),
                                 };
-
 
                                 Type::ParameterizedAtom { name, parameters }
                             }
                             _ => v,
                         }
-                    },
+                    }
                     Some(other) => panic!("expected identifier after `'`, found {other:?}"),
                     None => panic!("expected identifier after `'`, found EOF"),
-                
                 }
-            },
+            }
             Some(TokenData::LeftParen) => {
                 self.current += 1;
                 let ty = self.type_matrix(variables);
                 self.expect(TokenData::RightParen);
                 ty
-            },
+            }
             Some(other) => panic!("expected identifier, `'` or `(`, found {other:?}"),
             None => panic!("expected identifier, `'` or `(`, found EOF"),
         };
@@ -207,13 +219,13 @@ impl Parser {
             Some(TokenData::Arrow) => {
                 self.current += 1;
                 let to = self.type_matrix(variables);
-                
+
                 let from = Box::new(ty);
                 let to = Box::new(to);
 
                 Type::Fun(from, to)
-            },
-            _ => ty
+            }
+            _ => ty,
         }
     }
 
@@ -310,7 +322,7 @@ impl Parser {
 
     fn fun(&mut self) -> Expression {
         let mut args = vec![];
-        
+
         loop {
             match self.current_token() {
                 Some(TokenData::Identifier(arg)) => {
@@ -318,7 +330,7 @@ impl Parser {
                     self.current += 1;
 
                     args.push(arg);
-                },
+                }
                 Some(TokenData::Arrow) => break,
                 Some(other) => panic!("expected argument or `->` in fun head, found {other:?}"),
                 None => panic!("expected argument or `->` in fun head, found EOF"),
@@ -333,7 +345,7 @@ impl Parser {
         self.expect(TokenData::Arrow);
 
         let body = self.expression();
-        
+
         let mut expr = body;
         for arg in args.into_iter().rev() {
             expr = Expression::untyped(ExpressionData::Fun {
@@ -341,7 +353,7 @@ impl Parser {
                 body: Box::new(expr),
             });
         }
-        
+
         expr
     }
 

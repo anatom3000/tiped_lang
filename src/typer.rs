@@ -79,6 +79,10 @@ pub struct Environment {
 
 impl Environment {
     fn add_variable(&mut self, name: String, ty: Type) {
+        if name == "_" {
+            return;
+        }
+
         self.variables.insert(name, ty);
     }
 
@@ -389,20 +393,25 @@ impl Environment {
             Declaration::Let { name, value } => {
                 let type_ = self.infer_type(value);
 
-                println!("- {name}: {type_}");
+                println!("{name}: {type_}");
                 self.add_variable(name, type_);
             }
             Declaration::ExternLet { name, type_ } => {
                 self.assert_is_valid(&type_);
 
-                println!("- extern {name}: {type_}");
+                println!("extern {name}: {type_}");
                 self.add_variable(name, type_);
+            }
+            Declaration::UnboundExpr(expr) => {
+                let type_ = self.infer_type(expr);
+
+                println!("_: {type_}");
             }
             Declaration::Type {
                 name,
                 parameter_count,
             } => {
-                println!("- type {name}");
+                println!("type {name}");
                 self.type_atoms.insert(name, parameter_count);
             }
         }

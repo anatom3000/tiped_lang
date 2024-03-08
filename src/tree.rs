@@ -56,6 +56,7 @@ pub enum Declaration {
         name: String,
         type_: Type,
     },
+    UnboundExpr(Expression),
     Type {
         name: String,
         parameter_count: usize,
@@ -146,6 +147,7 @@ impl Display for Declaration {
         match self {
             Declaration::Let { name, value } => write!(f, "let {name} = {value}"),
             Declaration::ExternLet { name, type_ } => write!(f, "let {name} = extern {type_}"),
+            Declaration::UnboundExpr(expr) => write!(f, "{expr}"),
             Declaration::Type {
                 name,
                 parameter_count,

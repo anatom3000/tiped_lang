@@ -6,6 +6,7 @@ use crate::tree::{Declaration, Expression, ExpressionData, Type};
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
+    
 }
 
 impl Parser {
@@ -39,9 +40,8 @@ impl Parser {
             Some(TokenData::Type) => {
                 self.current += 1;
                 self.type_decl()
-            }
-            Some(other) => panic!("expected statement, found {other:?}"),
-            None => panic!("expected statement, found EOF"),
+            },
+            _ => Declaration::UnboundExpr(self.expression()),
         }
     }
 

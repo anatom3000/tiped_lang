@@ -1,8 +1,6 @@
 type unit
   let unit = extern unit
 
-type never
-
 type bool
   let true = extern bool
   let false = extern bool
@@ -21,7 +19,7 @@ let match_list = extern
 
 let println = extern (string -> unit)
 let to_string = extern ('a -> string)
-let loop = extern (unit -> unit) -> never // let rec loop f = f (); loop f
+let loop = extern (unit -> unit) -> 'a // let rec loop f = f (); loop f
 
 // fixed-point combinator to avoid implementing recursion for now
 let fix = extern (('a -> 'b) -> 'a -> 'b) -> 'a -> 'b

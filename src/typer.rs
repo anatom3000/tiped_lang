@@ -278,12 +278,14 @@ impl Environment {
                     constraints: value_constraints,
                 } = self.build_constraints(value, next_fresh_variable);
                 let value_type = self.generalize(value_constraints.clone(), value_type);
-                self.add_variable(name.to_string(), value_type);
+                
+                let mut with_var = self.sub();
+                with_var.add_variable(name.to_string(), value_type);
 
                 let ConstraintBuildingResult {
                     type_: body_type,
                     constraints: mut body_constraints,
-                } = self.build_constraints(body, next_fresh_variable);
+                } = with_var.build_constraints(body, next_fresh_variable);
 
                 let mut constraints = value_constraints;
                 constraints.append(&mut body_constraints);

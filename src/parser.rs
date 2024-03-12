@@ -3,19 +3,44 @@ use std::collections::{HashMap, HashSet};
 use crate::lexer::{Token, TokenData};
 use crate::tree::{Declaration, Expression, ExpressionData, Type};
 
+macro_rules! parsing_error {
+    ($self:ident, $message:expr $(, $($args:expr),*)?) => {
+        match $self.current_token_full() {
+            Some(Token { data: _, line, column }) => {
+                panic!(concat!("parsing error: ", $message, " at {}:{}"), line, column, $($($args, )*)?)
+            },
+            None => {
+                panic!(concat!("parsing error: ", $message, " at EOF"), $($($args, )*)?)
+            },
+        }
+    };
+}
+
+macro_rules! parsing_error_expected {
+    ($self:ident, $expected:expr) => {
+        match $self.current_token_full() {
+            Some(Token { data: found, line, column }) => {
+                panic!("parsing error: expected {}, found {} at {}:{}", $expected, found, line, column)
+            },
+            None => {
+                panic!("parsing error: expected {}, found EOF", $expected)
+            },
+        }
+    };
+}
+
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    
 }
 
 impl Parser {
-    fn current_token_full(&mut self) -> Option<&Token> {
-        self.tokens.get(self.current)
+    fn current_token_full(&mut self) -> Option<Token> {
+        self.tokens.get(self.current).cloned()
     }
 
-    fn current_token(&mut self) -> Option<&TokenData> {
-        self.current_token_full().map(|t| &t.data)
+    fn current_token(&mut self) -> Option<TokenData> {
+        self.current_token_full().map(|t| t.data)
     }
 
     pub fn new(tokens: Vec<Token>) -> Parser {
@@ -47,7 +72,7 @@ impl Parser {
 
     fn let_decl(&mut self) -> Declaration {
         let Some(TokenData::Identifier(name)) = self.current_token()
-            else { panic!("expected identifier after `let`") };
+            else { parsing_error_expected!(self, "identifier after `let`") };
         let name = name.to_string();
 
         self.current += 1;
@@ -73,15 +98,14 @@ impl Parser {
             self.current += 1;
             match self.current_token() {
                 Some(TokenData::Identifier(p)) => {
-                    if parameters.contains(p) {
-                        panic!("type parameter '{p} occurs several times");
+                    if parameters.contains(&p) {
+                        parsing_error!(self, "type parameter '{} occurs several times", p);
                     }
                     parameters.insert(p.to_string());
 
                     self.current += 1;
                 }
-                Some(other) => panic!("expected identifier after `'`, found {other:?}"),
-                None => panic!("expected identifier after `'`, found EOF"),
+                _ => parsing_error_expected!(self, "identifier after `'`"),
             }
         }
     }
@@ -107,8 +131,7 @@ impl Parser {
                         self.current += 1;
                         name
                     }
-                    Some(other) => panic!("expected identifier after `'`, found {other:?}"),
-                    None => panic!("expected identifier after `'`, found EOF"),
+                    _ => parsing_error_expected!(self, "identifier after `'`"),
                 };
 
                 Declaration::Type {
@@ -116,8 +139,7 @@ impl Parser {
                     parameter_count: parameters.len(),
                 }
             }
-            Some(other) => panic!("expected identifier after `type`, found {other:?}"),
-            None => panic!("expected identifier after `type`, found EOF"),
+            _ => parsing_error_expected!(self, "identifier after `type`"),
         }
     }
 
@@ -177,10 +199,7 @@ impl Parser {
 
                                             self.current += 1;
                                         }
-                                        Some(other) => {
-                                            panic!("expected identifier after `'`, found {other:?}")
-                                        }
-                                        None => panic!("expected identifier after `'`, found EOF"),
+                                        _ => parsing_error_expected!(self, "identifier after `'`"),
                                     }
                                 }
 
@@ -190,10 +209,7 @@ impl Parser {
                                         self.current += 1;
                                         name
                                     }
-                                    Some(other) => {
-                                        panic!("expected identifier after `'`, found {other:?}")
-                                    }
-                                    None => panic!("expected identifier after `'`, found EOF"),
+                                    _ => parsing_error_expected!(self, "identifier after `'`"),
                                 };
 
                                 Type::ParameterizedAtom { name, parameters }
@@ -201,8 +217,7 @@ impl Parser {
                             _ => v,
                         }
                     }
-                    Some(other) => panic!("expected identifier after `'`, found {other:?}"),
-                    None => panic!("expected identifier after `'`, found EOF"),
+                    _ => parsing_error_expected!(self, "identifier after `'`"),
                 }
             }
             Some(TokenData::LeftParen) => {
@@ -211,8 +226,7 @@ impl Parser {
                 self.expect(TokenData::RightParen);
                 ty
             }
-            Some(other) => panic!("expected identifier, `'` or `(`, found {other:?}"),
-            None => panic!("expected identifier, `'` or `(`, found EOF"),
+            _ => parsing_error_expected!(self, "identifier, `'` or `(`"),
         };
 
         match self.current_token() {
@@ -266,8 +280,7 @@ impl Parser {
                 self.expect(TokenData::RightParen);
                 inner
             }
-            Some(other) => panic!("expected expression, found {other:?}"),
-            None => panic!("expected expression, found EOF"),
+            _ => parsing_error_expected!(self, "expression"),
         };
 
         while let Some(TokenData::LeftParen) = self.current_token() {
@@ -287,8 +300,7 @@ impl Parser {
                         }
                     },
                     Some(TokenData::RightParen) => break,
-                    Some(other) => panic!("expected `,` or `)` after expression in function application, found {other:?}"),
-                    None => panic!("expected `,` or `)` after expression in function application, found EOF"),
+                    _ => parsing_error_expected!(self, "`,` or `)` after expression in function application"),
                 }
             }
 
@@ -307,7 +319,7 @@ impl Parser {
 
     fn let_in(&mut self) -> Expression {
         let Some(TokenData::Identifier(name)) = self.current_token()
-            else { panic!("expected identifier after `let`") };
+            else { parsing_error_expected!(self, "identifier after `let`") };
         let name = name.to_string();
 
         self.current += 1;
@@ -332,8 +344,7 @@ impl Parser {
                     args.push(arg);
                 }
                 Some(TokenData::Arrow) => break,
-                Some(other) => panic!("expected argument or `->` in fun head, found {other:?}"),
-                None => panic!("expected argument or `->` in fun head, found EOF"),
+                _ => parsing_error_expected!(self, "argument or `->` in fun head"),
             }
         }
 
@@ -359,11 +370,10 @@ impl Parser {
 
     fn expect(&mut self, expected: TokenData) {
         match self.current_token() {
-            Some(tok) if tok == &expected => {
+            Some(tok) if tok == expected => {
                 self.current += 1;
             }
-            Some(unexpected) => panic!("expected {expected:?}, found {unexpected}"),
-            None => panic!("expected {expected:?}, found EOF"),
+            _ => parsing_error_expected!(self, format!("{expected}")),
         }
     }
 }

@@ -1,12 +1,12 @@
 #[derive(Debug, PartialEq, Clone)]
-pub enum ExpressionData {
+pub enum Expression {
     LetIn {
         name: String,
         value: Box<Expression>,
         body: Box<Expression>,
     },
     Fun {
-        arg: (String, Option<Type>),
+        arg: String, 
         body: Box<Expression>,
     },
     App {
@@ -32,18 +32,6 @@ pub enum Type {
         name: String,
         parameters: Vec<Type>,
     },
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Expression {
-    pub data: ExpressionData,
-    pub type_: Option<Type>,
-}
-
-impl Expression {
-    pub fn untyped(data: ExpressionData) -> Expression {
-        Expression { data, type_: None }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -109,35 +97,18 @@ impl Display for Type {
 
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.type_ {
-            Some(ty) => write!(f, "({}: {})", self.data, ty),
-            None => write!(f, "{}", self.data),
-        }
-    }
-}
-
-impl Display for ExpressionData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExpressionData::LetIn { name, value, body } => {
+            Expression::LetIn { name, value, body } => {
                 write!(f, "let {name} = {value} in \n{body}")
             }
-            ExpressionData::Fun {
-                arg: (name, ty),
+            Expression::Fun {
+                arg: name,
                 body,
-            } => {
-                write!(f, "fun ")?;
-                match ty {
-                    None => write!(f, "{name} ")?,
-                    Some(ty) => write!(f, "({name}: {ty}) ")?,
-                }
-                writeln!(f, "-> ")?;
-                write!(f, "({body})")
-            }
-            ExpressionData::App { fun, arg } => write!(f, "{fun}({arg})"),
-            ExpressionData::StringLiteral(content) => write!(f, "\"{content}\""),
-            ExpressionData::IntLiteral(value) => write!(f, "{value}"),
-            ExpressionData::Variable(name) => write!(f, "{name}"),
+            } => write!(f, "fun {name} -> {body}"),
+            Expression::App { fun, arg } => write!(f, "{fun}({arg})"),
+            Expression::StringLiteral(content) => write!(f, "\"{content}\""),
+            Expression::IntLiteral(value) => write!(f, "{value}"),
+            Expression::Variable(name) => write!(f, "{name}"),
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::lexer::{Token, TokenData};
-use crate::tree::{Declaration, Expression, ExpressionData, Type};
+use crate::tree::{Declaration, Expression, Type};
 
 macro_rules! parsing_error {
     ($self:ident, $message:expr $(, $($args:expr),*)?) => {
@@ -244,7 +244,7 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Expression {
-        use ExpressionData::*;
+        use Expression::*;
 
         let mut expr = match self.current_token() {
             Some(TokenData::NewLine) => {
@@ -262,17 +262,17 @@ impl Parser {
             Some(TokenData::String(content)) => {
                 let content = content.clone();
                 self.current += 1;
-                Expression::untyped(StringLiteral(content))
+                StringLiteral(content)
             }
             Some(TokenData::Integer(value)) => {
                 let value = value.parse().expect("int literal is a digit sequence");
                 self.current += 1;
-                Expression::untyped(IntLiteral(value))
+                IntLiteral(value)
             }
             Some(TokenData::Identifier(name)) => {
                 let name = name.clone();
                 self.current += 1;
-                Expression::untyped(Variable(name))
+                Variable(name)
             }
             Some(TokenData::LeftParen) => {
                 self.current += 1;
@@ -307,10 +307,10 @@ impl Parser {
             self.expect(TokenData::RightParen);
 
             for arg in args {
-                expr = Expression::untyped(ExpressionData::App {
+                expr = Expression::App {
                     fun: Box::new(expr),
                     arg: Box::new(arg),
-                });
+                };
             }
         }
 
@@ -329,7 +329,7 @@ impl Parser {
 
         let body = Box::new(self.expression());
 
-        Expression::untyped(ExpressionData::LetIn { name, value, body })
+        Expression::LetIn { name, value, body }
     }
 
     fn fun(&mut self) -> Expression {
@@ -359,10 +359,10 @@ impl Parser {
 
         let mut expr = body;
         for arg in args.into_iter().rev() {
-            expr = Expression::untyped(ExpressionData::Fun {
-                arg: (arg, None),
+            expr = Expression::Fun {
+                arg,
                 body: Box::new(expr),
-            });
+            };
         }
 
         expr

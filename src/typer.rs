@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::tree::{Declaration, Expression, ExpressionData, Type};
+use crate::tree::{Declaration, Expression, Type};
 
 fn occurs_in(variable: usize, term: &Type) -> bool {
     match term {
@@ -271,8 +271,8 @@ impl Environment {
         expr: &Expression,
         next_fresh_variable: &mut usize,
     ) -> ConstraintBuildingResult {
-        match &expr.data {
-            ExpressionData::LetIn { name, value, body } => {
+        match expr {
+            Expression::LetIn { name, value, body } => {
                 let ConstraintBuildingResult {
                     type_: value_type,
                     constraints: value_constraints,
@@ -295,14 +295,14 @@ impl Environment {
                     constraints,
                 }
             }
-            ExpressionData::Fun {
-                arg: (arg_name, _ /* == None */),
+            Expression::Fun {
+                arg,
                 body,
             } => {
                 let mut with_arg = self.sub();
                 let arg_type = with_arg.new_var(next_fresh_variable);
 
-                with_arg.add_variable(arg_name.to_string(), arg_type.clone());
+                with_arg.add_variable(arg.to_string(), arg_type.clone());
 
                 let ConstraintBuildingResult {
                     type_: body_type,
@@ -317,7 +317,7 @@ impl Environment {
                     constraints,
                 }
             }
-            ExpressionData::App { fun, arg } => {
+            Expression::App { fun, arg } => {
                 let result_type = self.new_var(next_fresh_variable);
 
                 let ConstraintBuildingResult {
@@ -342,18 +342,18 @@ impl Environment {
                     constraints,
                 }
             }
-            ExpressionData::Variable(v) => match self.variables.get(v) {
+            Expression::Variable(v) => match self.variables.get(v) {
                 Some(ty) => ConstraintBuildingResult {
                     type_: self.instantiate(ty.clone(), next_fresh_variable),
                     constraints: vec![],
                 },
                 None => panic!("unknown variable {v}"),
             },
-            ExpressionData::StringLiteral(_) => ConstraintBuildingResult {
+            Expression::StringLiteral(_) => ConstraintBuildingResult {
                 type_: Type::Atom("string".to_string()),
                 constraints: vec![],
             },
-            ExpressionData::IntLiteral(_) => ConstraintBuildingResult {
+            Expression::IntLiteral(_) => ConstraintBuildingResult {
                 type_: Type::Atom("int".to_string()),
                 constraints: vec![],
             },

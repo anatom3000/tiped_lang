@@ -367,10 +367,7 @@ impl Environment {
 
         let type_ = self.generalize(constraints, type_);
 
-        // is this assert wrong?
-        // it fails when type checking map,
-        // yet the type checker produces correct results
-        // assert!(self.type_variables.is_empty());
+        assert!(self.type_variables.is_empty());
 
         self.type_variables.clear();
 

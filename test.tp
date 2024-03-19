@@ -19,12 +19,17 @@ let match_list = extern
 
 let println = extern (string -> unit)
 let to_string = extern ('a -> string)
-let loop = extern (unit -> unit) -> 'a // let rec loop f = f (); loop f
 
 // fixed-point combinator to avoid implementing recursion for now
 let fix = extern (('a -> 'b) -> 'a -> 'b) -> 'a -> 'b
 
 let id = (fun x -> x)(fun x -> x)
+
+let loop = 
+  let loop_inner = fun rec f ->
+    let _ = f(unit) in
+    rec(f)
+  in fix(loop_inner)
 
 let inspect = fun x ->
   let _ = println(to_string(x)) in
